@@ -1,0 +1,8 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- OmniTab 极简 Logo：深色圆底 + 浅色外边框 + 白色“O”环 + 小卫星点 -->
+  <circle cx="128" cy="128" r="118" fill="#111111" stroke="#E5E7EB" stroke-width="10" />
+  <circle cx="128" cy="128" r="72" stroke="#FFFFFF" stroke-width="26" />
+  <circle cx="181" cy="75" r="10" fill="#FFFFFF" />
+</svg>
+
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">   <!-- OmniTab 极简 Logo：深色圆底 + 浅色外边框 + 白色“O”环 + 小卫星点 -->   <circle cx="128" cy="128" r="118" fill="#111111" stroke="#E5E7EB" stroke-width="10" />   <circle cx="128" cy="128" r="72" stroke="#FFFFFF" stroke-width="26" />   <circle cx="181" cy="75" r="10" fill="#FFFFFF" /> </svg>

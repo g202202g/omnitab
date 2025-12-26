@@ -1,0 +1,126 @@
+name: 重新生成发布说明
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要更新的版本标签（例如：v0.1.0）'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 生成发布说明
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ inputs.tag }}"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "标签格式不正确：${TAG}"
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          DATE="$(date -u +%F)"
+
+          git fetch --tags --force
+
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "找不到标签：${TAG}"
+            exit 1
+          fi
+
+          # 找到“当前标签”的上一个版本标签（按版本升序，取前一个）
+          PREV=""
+          while read -r t; do
+            if [[ "${t}" == "${TAG}" ]]; then
+              break
+            fi
+            PREV="${t}"
+          done < <(
+            git tag --list 'v*' --sort=v:refname \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          )
+
+          TAG_SHA="$(git rev-list -n 1 "${TAG}")"
+          RANGE="${TAG_SHA}"
+          if [[ -n "${PREV}" ]]; then
+            RANGE="${PREV}..${TAG_SHA}"
+          fi
+
+          mkdir -p dist
+          OUT="dist/release-notes.md"
+
+          CONTENT="$(
+            git log --no-merges --format='%H%x1f%s%x1f%b%x1e' "${RANGE}" \
+              | awk -v RS='\x1e' -v FS='\x1f' '
+                function strip_prefix(s) {
+                  sub(/^[A-Za-z]+(\([^)]+\))?!?:[[:space:]]*/, "", s)
+                  return s
+                }
+                function is_internal(subject) {
+                  return subject ~ /^(ci|chore|docs|doc)(\([^)]+\))?!?:/
+                }
+                {
+                  subject = $2
+                  body = $3
+                  gsub(/\r/, "", body)
+                  gsub(/\\n/, "\n", body)
+
+                  if (subject == "") next
+                  if (is_internal(subject)) next
+
+                  n = split(body, lines, "\n")
+                  has_points = 0
+                  for (i = 1; i <= n; i++) {
+                    line = lines[i]
+                    if (line ~ /^- /) {
+                      point = substr(line, 3)
+                      if (point != "") {
+                        print "- " point
+                        has_points = 1
+                      }
+                    }
+                  }
+
+                  if (!has_points) {
+                    title = strip_prefix(subject)
+                    if (title == "") title = subject
+                    print "- " title
+                  }
+                }
+              ' \
+              | awk 'NF' \
+              || true
+          )"
+
+          if [[ -z "${CONTENT//[[:space:]]/}" ]]; then
+            CONTENT="- 这次主要做了整理和改进"
+          fi
+
+          {
+            echo "## ${TAG} - ${DATE}"
+            echo
+            printf "%s\n" "${CONTENT}"
+            echo
+          } > "${OUT}"
+
+          echo "body_path=${OUT}" >> "$GITHUB_OUTPUT"
+
+      - name: 更新 Release 正文
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          body_path: dist/release-notes.md

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="万象标签（OmniTab）：可自定义的新标签页（背景可切换、卡片可增删拖拽、设置会自动保存）。"
+    />
+    <title>万象标签（OmniTab）</title>
+    <style>
+      html,
+      body,
+      #app {
+        height: 100%;
+        margin: 0;
+      }
+
+      .preload-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #ffffff;
+        color: #111111;
+        font-family: 'Inter', 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      }
+
+      .preload-spinner {
+        width: 40px;
+        height: 40px;
+        border-radius: 9999px;
+        border: 2px solid rgba(17, 17, 17, 0.2);
+        border-top-color: rgba(17, 17, 17, 0.85);
+        animation: preload-spin 0.9s linear infinite;
+      }
+
+      .preload-text {
+        font-size: 14px;
+        opacity: 0.7;
+      }
+
+      @keyframes preload-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .preload-loading {
+          background: #111111;
+          color: #eeeeee;
+        }
+        .preload-spinner {
+          border-color: rgba(238, 238, 238, 0.2);
+          border-top-color: rgba(238, 238, 238, 0.85);
+        }
+      }
+
+      .dark .preload-loading {
+        background: #111111;
+        color: #eeeeee;
+      }
+      .dark .preload-spinner {
+        border-color: rgba(238, 238, 238, 0.2);
+        border-top-color: rgba(238, 238, 238, 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="preload-loading" role="status" aria-live="polite" aria-busy="true">
+        <div class="preload-spinner" aria-hidden="true"></div>
+        <div class="preload-text">正在加载页面...</div>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,66 @@
+/* 让新手指引的外观跟随页面主题（亮/暗模式自动适配） */
+
+.driver-popover {
+  background-color: color-mix(in oklab, var(--popover) 92%, transparent) !important;
+  color: var(--popover-foreground) !important;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent) !important;
+  border-radius: calc(var(--radius) + 0.5rem) !important;
+  box-shadow: 0 18px 60px -26px color-mix(in oklab, var(--foreground) 24%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.driver-popover-title {
+  color: var(--popover-foreground) !important;
+  font-size: 0.95rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.driver-popover-description {
+  color: color-mix(in oklab, var(--popover-foreground) 72%, transparent) !important;
+  font-size: 0.875rem !important;
+}
+
+.driver-popover-progress-text {
+  color: color-mix(in oklab, var(--popover-foreground) 62%, transparent) !important;
+}
+
+.driver-popover-arrow {
+  border-color: color-mix(in oklab, var(--popover) 92%, transparent) !important;
+}
+
+.driver-popover-close-btn {
+  color: color-mix(in oklab, var(--popover-foreground) 40%, transparent) !important;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+  color: var(--popover-foreground) !important;
+  opacity: 0.85;
+}
+
+.driver-popover-footer button {
+  background-color: color-mix(in oklab, var(--popover) 96%, transparent) !important;
+  color: var(--popover-foreground) !important;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent) !important;
+  border-radius: calc(var(--radius) + 0.15rem) !important;
+  padding: 0.4rem 0.6rem !important;
+  line-height: 1.15 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.driver-popover-footer button:hover,
+.driver-popover-footer button:focus {
+  background-color: color-mix(in oklab, var(--accent) 60%, transparent) !important;
+}
+
+.driver-active-element {
+  border-radius: var(--radius) !important;
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--ring) 55%, transparent),
+    0 0 0 8px color-mix(in oklab, var(--ring) 18%, transparent) !important;
+}
