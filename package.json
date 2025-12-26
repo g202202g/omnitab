@@ -2,7 +2,7 @@
   "name": "omnitab",
   "description": "万象标签（OmniTab）：可自定义的新标签页（背景可切换、组件可增删拖拽、配置可持久化）",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

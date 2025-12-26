@@ -90,10 +90,17 @@ const buildIframeUnblockRule = (tabId: number | undefined, options?: { includeIn
       requestHeaders: [
         // 参考旧版实现：部分站点会基于 Fetch Metadata 阻止 iframe 嵌入
         { header: 'sec-fetch-dest', operation: 'set' as const, value: 'document' },
+        {
+          header: 'sec-fetch-site',
+          operation: 'set' as const,
+          value: 'same-origin',
+        },
       ],
       responseHeaders: [
         { header: 'x-frame-options', operation: 'remove' as const },
+        { header: 'X-Frame-Options', operation: 'remove' as const },
         { header: 'content-security-policy', operation: 'remove' as const },
+        { header: 'Content-Security-Policy', operation: 'remove' as const },
       ],
     },
     condition,
@@ -109,6 +116,11 @@ const buildIframeRule = (
   const requestHeaders = [
     // 参考旧版实现：部分站点会基于 Fetch Metadata 阻止 iframe 嵌入
     { header: 'sec-fetch-dest', operation: 'set' as const, value: 'document' },
+    {
+      header: 'sec-fetch-site',
+      operation: 'set' as const,
+      value: 'same-origin',
+    },
     {
       header: 'user-agent',
       operation: 'set' as const,
@@ -148,7 +160,9 @@ const buildIframeRule = (
       requestHeaders,
       responseHeaders: [
         { header: 'x-frame-options', operation: 'remove' as const },
+        { header: 'X-Frame-Options', operation: 'remove' as const },
         { header: 'content-security-policy', operation: 'remove' as const },
+        { header: 'Content-Security-Policy', operation: 'remove' as const },
       ],
     },
     condition,

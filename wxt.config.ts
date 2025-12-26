@@ -28,7 +28,7 @@ export default defineConfig({
     },
     permissions: ['storage', 'declarativeNetRequestWithHostAccess', 'favicon'],
     optional_permissions: ['history', 'bookmarks', 'system.cpu', 'system.memory', 'topSites', 'downloads', 'sessions'],
-    host_permissions: [],
+    host_permissions: ['http://*/*', 'https://*/*'],
     // optional_host_permissions: ['http://*/*', 'https://*/*'],
   },
   vite: () => ({
