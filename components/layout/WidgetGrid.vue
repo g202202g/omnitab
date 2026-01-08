@@ -43,8 +43,13 @@ const widgetEls = new Map<string, HTMLElement>();
 const nameDrafts = ref<Record<string, string>>({});
 
 const GRID_COLUMNS = 24;
+const GRID_MAX_COLUMNS = 96;
+const GRID_FIXED_COLUMN_WIDTH = 100;
 const GRID_MARGIN = 20;
 const GRID_CELL_HEIGHT = 20;
+
+// 响应式列宽策略：固定列宽（px/列），容器宽度变化时通过动态 column 数量重排。
+const responsiveColumnWidth = GRID_FIXED_COLUMN_WIDTH;
 
 type WidgetConfigDownload = {
   version: 1;
@@ -113,11 +118,17 @@ const exportCardConfig = (widget: WidgetLayout) => {
 const gridOptions: GridStackOptions = {
   column: GRID_COLUMNS,
   columnOpts: {
-    columnWidth: 100,
-    columnMax: GRID_COLUMNS,
-    layout: 'moveScale',
+    columnWidth: GRID_FIXED_COLUMN_WIDTH,
+    columnMax: GRID_MAX_COLUMNS,
+    // 响应式时保持卡片的列宽(w)不变，且在列数变化时自动下推避免重叠。
+    // 选择 'list'：不缩放大小，尽量保留顺序并消除冲突。
+    layout: 'list',
     breakpointForWindow: false,
   },
+  // 关闭动画，避免窗口快速缩放时出现“过程态重叠/错位”（刷新后才恢复）的视觉问题。
+  animate: false,
+  // 降低 resize 节流影响，让布局更即时。
+  cellHeightThrottle: 0,
   margin: GRID_MARGIN / 4,
   cellHeight: GRID_CELL_HEIGHT,
   float: true,
@@ -130,10 +141,11 @@ let guideResizeObserver: ResizeObserver | null = null;
 
 const applyGuideVars = () => {
   if (!gridRoot.value || !props.editMode) return;
-  gridRoot.value.style.setProperty('--gs-guide-cols', String(GRID_COLUMNS));
+  const cols = grid.value?.getColumn?.() ?? GRID_COLUMNS;
+  gridRoot.value.style.setProperty('--gs-guide-cols', String(cols));
   gridRoot.value.style.setProperty('--gs-guide-row', `${GRID_CELL_HEIGHT + GRID_MARGIN}px`);
   const width = gridRoot.value.clientWidth;
-  if (width) gridRoot.value.style.setProperty('--gs-guide-col', `${width / GRID_COLUMNS}px`);
+  if (width && cols) gridRoot.value.style.setProperty('--gs-guide-col', `${width / cols}px`);
 };
 
 const clearGuideVars = () => {
@@ -152,14 +164,52 @@ const applyGuideMode = () => {
 
 const startGuideObserver = () => {
   if (!gridRoot.value || guideResizeObserver) return;
-  guideResizeObserver = new ResizeObserver(() => applyGuideVars());
+  guideResizeObserver = new ResizeObserver(() => {
+    applyResponsiveColumns();
+    applyGuideVars();
+  });
   guideResizeObserver.observe(gridRoot.value);
+  applyResponsiveColumns();
   applyGuideVars();
 };
 
 const stopGuideObserver = () => {
   guideResizeObserver?.disconnect();
   guideResizeObserver = null;
+};
+
+const applyResponsiveColumns = () => {
+  if (!grid.value || !gridRoot.value) return;
+  if (!responsiveColumnWidth) return;
+  const width = gridRoot.value.clientWidth;
+  if (!width) return;
+
+  const nextCols = Math.max(1, Math.min(GRID_MAX_COLUMNS, Math.round(width / responsiveColumnWidth) || GRID_COLUMNS));
+  const currentCols = grid.value.getColumn?.() ?? GRID_COLUMNS;
+  if (nextCols === currentCols) return;
+
+  suppressGridEvents.value = true;
+  try {
+    // 关键点：GridStack#column() 默认 layout=moveScale，会缩放 w/x。
+    // 这里使用 'list'：不缩放大小，同时把冲突项向下推，避免窄屏时出现重叠。
+    // 同时临时关闭动画，减少快速拖动窗口时的过程态错位。
+    grid.value.setAnimation(false);
+    grid.value.column(nextCols, 'list');
+    // 强制触发一次 resize 计算，避免快速拖动窗口时出现短暂错位（刷新后才恢复）。
+    grid.value.onResize();
+    grid.value.setAnimation(true, true);
+  } finally {
+    suppressGridEvents.value = false;
+  }
+
+  applyGuideVars();
+  logger.info('responsive columns applied', {
+    pageId: props.pageId,
+    width,
+    baseline: responsiveColumnWidth,
+    from: currentCols,
+    to: nextCols,
+  });
 };
 
 const createId = () => crypto.randomUUID?.() ?? `card-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -378,6 +428,7 @@ watch(
     if (!grid.value) return;
     await nextTick();
     await loadWidgetsFromProps();
+    applyResponsiveColumns();
     grid.value?.setStatic(!props.editMode);
     ensureNameDrafts();
     logger.info('page change -> reload grid', {
@@ -396,6 +447,7 @@ watch(
       return;
     }
     await loadWidgetsFromProps();
+    applyResponsiveColumns();
     ensureNameDrafts();
     grid.value?.setStatic(!props.editMode);
     logger.info('widgets changed from parent -> reload grid', {

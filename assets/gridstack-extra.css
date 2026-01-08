@@ -1,0 +1,149 @@
+/*
+ * GridStack 额外列数样式（2-11 列）。
+ * 官方文档提到：动态切换列数需要提供对应列数的 CSS（通常由 gridstack-extra.css 提供）。
+ * 该项目使用固定列宽 + 动态列数，因此需要这些规则来保证 resize 时定位正确。
+ */
+
+.grid-stack.gs-1 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-1 > .grid-stack-item[gs-w="1"] { width: 100%; }
+
+.grid-stack.gs-2 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-2 > .grid-stack-item[gs-x="1"] { left: 50%; }
+.grid-stack.gs-2 > .grid-stack-item[gs-w="1"] { width: 50%; }
+.grid-stack.gs-2 > .grid-stack-item[gs-w="2"] { width: 100%; }
+
+.grid-stack.gs-3 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-3 > .grid-stack-item[gs-x="1"] { left: 33.3333%; }
+.grid-stack.gs-3 > .grid-stack-item[gs-x="2"] { left: 66.6667%; }
+.grid-stack.gs-3 > .grid-stack-item[gs-w="1"] { width: 33.3333%; }
+.grid-stack.gs-3 > .grid-stack-item[gs-w="2"] { width: 66.6667%; }
+.grid-stack.gs-3 > .grid-stack-item[gs-w="3"] { width: 100%; }
+
+.grid-stack.gs-4 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-x="1"] { left: 25%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-x="2"] { left: 50%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-x="3"] { left: 75%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-w="1"] { width: 25%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-w="2"] { width: 50%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-w="3"] { width: 75%; }
+.grid-stack.gs-4 > .grid-stack-item[gs-w="4"] { width: 100%; }
+
+.grid-stack.gs-5 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-x="1"] { left: 20%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-x="2"] { left: 40%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-x="3"] { left: 60%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-x="4"] { left: 80%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-w="1"] { width: 20%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-w="2"] { width: 40%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-w="3"] { width: 60%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-w="4"] { width: 80%; }
+.grid-stack.gs-5 > .grid-stack-item[gs-w="5"] { width: 100%; }
+
+.grid-stack.gs-6 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-x="1"] { left: 16.6667%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-x="2"] { left: 33.3333%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-x="3"] { left: 50%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-x="4"] { left: 66.6667%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-x="5"] { left: 83.3333%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="1"] { width: 16.6667%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="2"] { width: 33.3333%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="3"] { width: 50%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="4"] { width: 66.6667%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="5"] { width: 83.3333%; }
+.grid-stack.gs-6 > .grid-stack-item[gs-w="6"] { width: 100%; }
+
+.grid-stack.gs-7 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="1"] { left: 14.2857%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="2"] { left: 28.5714%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="3"] { left: 42.8571%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="4"] { left: 57.1429%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="5"] { left: 71.4286%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-x="6"] { left: 85.7143%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="1"] { width: 14.2857%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="2"] { width: 28.5714%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="3"] { width: 42.8571%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="4"] { width: 57.1429%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="5"] { width: 71.4286%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="6"] { width: 85.7143%; }
+.grid-stack.gs-7 > .grid-stack-item[gs-w="7"] { width: 100%; }
+
+.grid-stack.gs-8 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="1"] { left: 12.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="2"] { left: 25%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="3"] { left: 37.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="4"] { left: 50%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="5"] { left: 62.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="6"] { left: 75%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-x="7"] { left: 87.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="1"] { width: 12.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="2"] { width: 25%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="3"] { width: 37.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="4"] { width: 50%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="5"] { width: 62.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="6"] { width: 75%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="7"] { width: 87.5%; }
+.grid-stack.gs-8 > .grid-stack-item[gs-w="8"] { width: 100%; }
+
+.grid-stack.gs-9 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="1"] { left: 11.1111%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="2"] { left: 22.2222%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="3"] { left: 33.3333%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="4"] { left: 44.4444%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="5"] { left: 55.5556%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="6"] { left: 66.6667%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="7"] { left: 77.7778%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-x="8"] { left: 88.8889%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="1"] { width: 11.1111%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="2"] { width: 22.2222%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="3"] { width: 33.3333%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="4"] { width: 44.4444%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="5"] { width: 55.5556%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="6"] { width: 66.6667%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="7"] { width: 77.7778%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="8"] { width: 88.8889%; }
+.grid-stack.gs-9 > .grid-stack-item[gs-w="9"] { width: 100%; }
+
+.grid-stack.gs-10 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="1"] { left: 10%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="2"] { left: 20%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="3"] { left: 30%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="4"] { left: 40%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="5"] { left: 50%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="6"] { left: 60%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="7"] { left: 70%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="8"] { left: 80%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-x="9"] { left: 90%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="1"] { width: 10%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="2"] { width: 20%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="3"] { width: 30%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="4"] { width: 40%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="5"] { width: 50%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="6"] { width: 60%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="7"] { width: 70%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="8"] { width: 80%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="9"] { width: 90%; }
+.grid-stack.gs-10 > .grid-stack-item[gs-w="10"] { width: 100%; }
+
+.grid-stack.gs-11 > .grid-stack-item[gs-x="0"] { left: 0%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="1"] { left: 9.0909%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="2"] { left: 18.1818%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="3"] { left: 27.2727%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="4"] { left: 36.3636%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="5"] { left: 45.4545%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="6"] { left: 54.5455%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="7"] { left: 63.6364%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="8"] { left: 72.7273%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="9"] { left: 81.8182%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-x="10"] { left: 90.9091%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="1"] { width: 9.0909%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="2"] { width: 18.1818%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="3"] { width: 27.2727%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="4"] { width: 36.3636%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="5"] { width: 45.4545%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="6"] { width: 54.5455%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="7"] { width: 63.6364%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="8"] { width: 72.7273%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="9"] { width: 81.8182%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="10"] { width: 90.9091%; }
+.grid-stack.gs-11 > .grid-stack-item[gs-w="11"] { width: 100%; }
+

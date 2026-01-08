@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onActivated, onDeactivated, onMounted, ref } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,6 +27,7 @@ import PageBackground from '@/components/layout/PageBackground.vue';
 import DynamicIcon from '@/components/ui/icon/DynamicIcon.vue';
 import { consumePendingWebCardPick } from '@/utils/domPickerPending';
 import { browser } from 'wxt/browser';
+import { resolveLayoutBreakpoint, type LayoutBreakpoint } from '@/utils/layoutBreakpoints';
 
 const props = defineProps<{
   pageId?: string;
@@ -40,6 +41,51 @@ const router = useRouter();
 
 const allowEmptyPersist = ref(false);
 const widgetInitialized = ref(false);
+const layoutBreakpoint = ref<LayoutBreakpoint>('base');
+let layoutResizeObserver: ResizeObserver | null = null;
+let layoutResizeRaf = 0;
+let breakpointDebounceTimer = 0;
+
+const BREAKPOINT_DEBOUNCE_MS = 150;
+
+const ensureBreakpointSeeded = (pageId: string, breakpoint: LayoutBreakpoint) => {
+  if (!pageId) return;
+  if (breakpoint === 'base') return;
+  widgetStore.ensureBreakpointSeeded?.(pageId, breakpoint);
+};
+
+const startLayoutBreakpointObserver = () => {
+  if (layoutResizeObserver || typeof ResizeObserver === 'undefined') return;
+  layoutResizeObserver = new ResizeObserver((entries) => {
+    if (layoutResizeRaf) cancelAnimationFrame(layoutResizeRaf);
+    layoutResizeRaf = requestAnimationFrame(() => {
+      layoutResizeRaf = 0;
+      const entry = entries[0];
+      const width = entry?.contentRect?.width ?? 0;
+      const next = resolveLayoutBreakpoint(width);
+
+      // 防抖：避免用户拖动窗口时频繁切换断点，导致 WidgetGrid 反复 load() 引发布局过程态错位。
+      if (breakpointDebounceTimer) window.clearTimeout(breakpointDebounceTimer);
+      breakpointDebounceTimer = window.setTimeout(() => {
+        breakpointDebounceTimer = 0;
+        if (next === layoutBreakpoint.value) return;
+        layoutBreakpoint.value = next;
+        logger.info('layout breakpoint changed', { pageId: currentPage.value?.id, breakpoint: next, width });
+      }, BREAKPOINT_DEBOUNCE_MS);
+    });
+  });
+  const root = document.querySelector('[data-tour="grid"]') as HTMLElement | null;
+  if (root) layoutResizeObserver.observe(root);
+};
+
+const stopLayoutBreakpointObserver = () => {
+  if (layoutResizeRaf) cancelAnimationFrame(layoutResizeRaf);
+  layoutResizeRaf = 0;
+  if (breakpointDebounceTimer) window.clearTimeout(breakpointDebounceTimer);
+  breakpointDebounceTimer = 0;
+  layoutResizeObserver?.disconnect();
+  layoutResizeObserver = null;
+};
 
 const currentPage = computed<PageInfo | null>(() => {
   if (!store.pages.value.length) return null;
@@ -49,7 +95,8 @@ const currentPage = computed<PageInfo | null>(() => {
 
 const pageWidgets = computed<WidgetLayout[]>(() => {
   if (!widgetStore.ready.value || !currentPage.value || !widgetInitialized.value) return [];
-  return widgetStore.getWidgets(currentPage.value.id);
+  ensureBreakpointSeeded(currentPage.value.id, layoutBreakpoint.value);
+  return widgetStore.getWidgets(currentPage.value.id, layoutBreakpoint.value);
 });
 
 const addDialogOpen = ref(false);
@@ -181,7 +228,7 @@ const handleReflowGrid = async () => {
 
 const handleLayoutChange = (layouts: WidgetLayout[]) => {
   if (!currentPage.value || !widgetStore.ready.value) return;
-  const prev = widgetStore.getWidgets(currentPage.value.id);
+  const prev = widgetStore.getWidgets(currentPage.value.id, layoutBreakpoint.value);
   // 避免非用户操作时空网格覆盖已有数据，除非明确允许
   if (!layouts.length && prev.length && !allowEmptyPersist.value) {
     logger.warn('skip persist empty layout (keep previous)', {
@@ -191,10 +238,11 @@ const handleLayoutChange = (layouts: WidgetLayout[]) => {
     return;
   }
   allowEmptyPersist.value = false;
-  widgetStore.replacePage(currentPage.value.id, layouts);
+  widgetStore.replacePage(currentPage.value.id, layouts, { breakpoint: layoutBreakpoint.value });
   logger.info('grid change -> persist', {
     pageId: currentPage.value.id,
     count: layouts.length,
+    breakpoint: layoutBreakpoint.value,
   });
 };
 
@@ -236,7 +284,7 @@ const handleAddCardToPage = (
   const maxH = def.defaults.maxH ?? 999;
   const resolvedW = clampInt(payload?.w, def.defaults.w, minW, maxW);
   const resolvedH = clampInt(payload?.h, def.defaults.h, minH, maxH);
-  const existing = widgetStore.getWidgets(pageId);
+  const existing = widgetStore.getWidgets(pageId, layoutBreakpoint.value);
   const heights = Array(GRID_COLUMNS).fill(0);
 
   // 计算每列当前的高度，用于找到最平衡的落点
@@ -262,26 +310,30 @@ const handleAddCardToPage = (
     }
   }
 
-  const widget = widgetStore.addWidget(pageId, {
-    w: resolvedW,
-    h: resolvedH,
-    minW: def.defaults.minW,
-    minH: def.defaults.minH,
-    maxW: def.defaults.maxW,
-    maxH: def.defaults.maxH,
-    x: bestX,
-    y: Number.isFinite(bestY) ? bestY : 0,
-    type,
-    name: typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : undefined,
-    icon: typeof payload?.icon === 'string' && payload.icon.trim() ? payload.icon.trim() : undefined,
-    description:
-      typeof payload?.description === 'string' && payload.description.trim() ? payload.description.trim() : undefined,
-    showBorder: typeof payload?.showBorder === 'boolean' ? payload.showBorder : (def.defaults.showBorder ?? true),
-    showTitle: typeof payload?.showTitle === 'boolean' ? payload.showTitle : (def.defaults.showTitle ?? true),
-    showBackground:
-      typeof payload?.showBackground === 'boolean' ? payload.showBackground : (def.defaults.showBackground ?? true),
-    data: payload?.data,
-  });
+  const widget = widgetStore.addWidget(
+    pageId,
+    {
+      w: resolvedW,
+      h: resolvedH,
+      minW: def.defaults.minW,
+      minH: def.defaults.minH,
+      maxW: def.defaults.maxW,
+      maxH: def.defaults.maxH,
+      x: bestX,
+      y: Number.isFinite(bestY) ? bestY : 0,
+      type,
+      name: typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : undefined,
+      icon: typeof payload?.icon === 'string' && payload.icon.trim() ? payload.icon.trim() : undefined,
+      description:
+        typeof payload?.description === 'string' && payload.description.trim() ? payload.description.trim() : undefined,
+      showBorder: typeof payload?.showBorder === 'boolean' ? payload.showBorder : (def.defaults.showBorder ?? true),
+      showTitle: typeof payload?.showTitle === 'boolean' ? payload.showTitle : (def.defaults.showTitle ?? true),
+      showBackground:
+        typeof payload?.showBackground === 'boolean' ? payload.showBackground : (def.defaults.showBackground ?? true),
+      data: payload?.data,
+    },
+    { breakpoint: layoutBreakpoint.value },
+  );
   logger.info('add widget', {
     pageId,
     widgetId: widget?.id,
@@ -339,6 +391,13 @@ onMounted(async () => {
 
   await tryOpenAddDialogFromPending();
   void onboardingGuide.startIfNeeded();
+
+  // 断点监听：用于“不同宽度保存不同布局”。
+  startLayoutBreakpointObserver();
+});
+
+onBeforeUnmount(() => {
+  stopLayoutBreakpointObserver();
 });
 
 onActivated(() => {

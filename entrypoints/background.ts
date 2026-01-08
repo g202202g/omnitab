@@ -104,7 +104,8 @@ type WidgetLayout = {
 };
 
 type WidgetState = {
-  pages?: Record<string, Array<WidgetLayout> | Record<string, WidgetLayout>>;
+  pages?: Record<string, unknown>;
+  breakpoints?: Record<string, unknown>;
 };
 
 type PageInfo = {
@@ -133,7 +134,7 @@ const shouldDedupeDomPick = (key: string) => {
   return false;
 };
 
-const widgetsItem = storage.defineItem<WidgetState>('local:page-widgets', { fallback: { pages: {} } });
+const widgetsItem = storage.defineItem<WidgetState>('local:page-widgets', { fallback: { pages: {}, breakpoints: {} } });
 const pageStateItem = storage.defineItem<PageState>('local:page-state', { fallback: { pages: [], activePageId: '' } });
 
 const normalizeWidgets = (value: unknown): WidgetLayout[] => {
@@ -142,6 +143,24 @@ const normalizeWidgets = (value: unknown): WidgetLayout[] => {
     return Object.entries(value as Record<string, WidgetLayout>).map(([id, widget]) => ({ id, ...(widget as object) }));
   }
   return [];
+};
+
+const normalizePageEntry = (state: WidgetState, pageId: string): WidgetLayout[] => {
+  const pages = (state?.pages ?? {}) as Record<string, unknown>;
+  const breakpoints = (state?.breakpoints ?? {}) as Record<string, any>;
+
+  const baseRaw = pages[pageId];
+  const baseList = normalizeWidgets(baseRaw);
+
+  // 兼容：上一版尝试 pages[pageId] 写成 { base: [...], sm: [...], ... }
+  if (baseRaw && typeof baseRaw === 'object' && !Array.isArray(baseRaw)) {
+    const record = baseRaw as Record<string, unknown>;
+    if ('base' in record) return normalizeWidgets(record.base ?? []);
+  }
+
+  // breakpoints 不用于后台增卡定位（仅用于 UI），这里忽略。
+  void breakpoints;
+  return baseList;
 };
 
 const createId = () => crypto.randomUUID?.() ?? `widget-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -169,8 +188,8 @@ const addWebCardWidgetToPage = async (payload: { url: string; selector: string; 
   if (!pageId) return { ok: false as const, error: '未找到可用页面（请先打开新标签页初始化页面）' };
 
   const state = await widgetsItem.getValue();
-  const pages = state?.pages ?? {};
-  const current = normalizeWidgets(pages[pageId] ?? []);
+  const pages = (state?.pages ?? {}) as Record<string, unknown>;
+  const current = normalizePageEntry(state ?? {}, pageId);
 
   const nextY = current.reduce((maxY, item) => {
     const y = Number((item as any)?.y);
@@ -202,6 +221,7 @@ const addWebCardWidgetToPage = async (payload: { url: string; selector: string; 
   };
 
   await widgetsItem.setValue({
+    ...(state ?? {}),
     pages: {
       ...pages,
       [pageId]: [...current, widget],

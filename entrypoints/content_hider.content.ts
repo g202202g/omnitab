@@ -4,10 +4,11 @@ import { storage } from 'wxt/utils/storage';
 type WidgetData = { selector?: string; url?: string; customStyle?: string; frameToken?: string };
 type WidgetLayout = { id?: string; type?: string; data?: WidgetData };
 type WidgetState = {
-  pages?: Record<string, Array<WidgetLayout> | Record<string, WidgetLayout>>;
+  pages?: Record<string, unknown>;
+  breakpoints?: Record<string, unknown>;
 };
 
-const widgetsItem = storage.defineItem<WidgetState>('local:page-widgets', { fallback: { pages: {} } });
+const widgetsItem = storage.defineItem<WidgetState>('local:page-widgets', { fallback: { pages: {}, breakpoints: {} } });
 
 const normalizeWidgets = (value: unknown): WidgetLayout[] => {
   if (Array.isArray(value)) return value;
@@ -17,10 +18,25 @@ const normalizeWidgets = (value: unknown): WidgetLayout[] => {
   return [];
 };
 
+const normalizePageEntry = (state: WidgetState, pageId: string): WidgetLayout[] => {
+  const pages = (state?.pages ?? {}) as Record<string, unknown>;
+
+  const baseRaw = pages[pageId];
+  const baseList = normalizeWidgets(baseRaw);
+
+  // 兼容：上一版尝试 pages[pageId] 写成 { base: [...], sm: [...], ... }
+  if (baseRaw && typeof baseRaw === 'object' && !Array.isArray(baseRaw)) {
+    const record = baseRaw as Record<string, unknown>;
+    if ('base' in record) return normalizeWidgets(record.base ?? []);
+  }
+
+  return baseList;
+};
+
 const resolveConfigForFrame = (state: WidgetState, widgetId: string) => {
   const pages = state?.pages ?? {};
-  for (const entry of Object.values(pages)) {
-    const widgets = normalizeWidgets(entry);
+  for (const pageId of Object.keys(pages)) {
+    const widgets = normalizePageEntry(state, pageId);
     for (const widget of widgets) {
       if (!widget || widget.type !== 'iframe') continue;
       const id = typeof widget.id === 'string' ? widget.id : '';
