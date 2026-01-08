@@ -26,7 +26,8 @@ export default defineConfig({
       },
       default_title: '万象标签（OmniTab）',
     },
-    permissions: ['storage', 'declarativeNetRequestWithHostAccess', 'favicon'],
+    // 说明：用于“点击扩展图标后在当前页面注入 DOM 选取脚本，并通过消息回传选取结果”。
+    permissions: ['storage', 'declarativeNetRequestWithHostAccess', 'favicon', 'tabs', 'scripting'],
     optional_permissions: ['history', 'bookmarks', 'system.cpu', 'system.memory', 'topSites', 'downloads', 'sessions'],
     host_permissions: ['http://*/*', 'https://*/*'],
     // optional_host_permissions: ['http://*/*', 'https://*/*'],

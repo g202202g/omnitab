@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -24,6 +25,8 @@ import type { WidgetType } from '@/components/widgets/types';
 import AddWidgetDialog from '@/components/widgets/AddWidgetDialog.vue';
 import PageBackground from '@/components/layout/PageBackground.vue';
 import DynamicIcon from '@/components/ui/icon/DynamicIcon.vue';
+import { consumePendingWebCardPick } from '@/utils/domPickerPending';
+import { browser } from 'wxt/browser';
 
 const props = defineProps<{
   pageId?: string;
@@ -33,6 +36,7 @@ const store = usePageStore();
 const widgetStore = useWidgetStore();
 const logger = useLog('page-board');
 const onboardingGuide = useOnboardingGuide();
+const router = useRouter();
 
 const allowEmptyPersist = ref(false);
 const widgetInitialized = ref(false);
@@ -49,9 +53,66 @@ const pageWidgets = computed<WidgetLayout[]>(() => {
 });
 
 const addDialogOpen = ref(false);
+const addDialogType = ref<WidgetType>(DEFAULT_WIDGET_TYPE);
+const addDialogData = ref<Record<string, unknown> | undefined>(undefined);
+const addDialogTitle = ref<string>('');
 const editMode = ref(false);
+
+const resetAddDialogPrefill = () => {
+  addDialogType.value = DEFAULT_WIDGET_TYPE;
+  addDialogData.value = undefined;
+  addDialogTitle.value = '';
+};
+
+let domPickListenerActive = false;
+const domPickListener = (message: any) => {
+  if (message?.type !== 'newtab:dom-pick-ready') return;
+  void tryOpenAddDialogFromPending();
+};
+
+const enableDomPickListener = () => {
+  if (domPickListenerActive) return;
+  domPickListenerActive = true;
+  browser?.runtime?.onMessage?.addListener(domPickListener);
+};
+
+const disableDomPickListener = () => {
+  if (!domPickListenerActive) return;
+  domPickListenerActive = false;
+  try {
+    browser?.runtime?.onMessage?.removeListener?.(domPickListener);
+  } catch {
+    // ignore
+  }
+};
+
 const handleAddDialogClose = () => {
   addDialogOpen.value = false;
+  // 避免 DOM 选取的预填数据残留到下一次“手动添加卡片”。
+  resetAddDialogPrefill();
+};
+
+const loadPrefillFromPendingPick = async () => {
+  const pending = await consumePendingWebCardPick({ maxAgeMs: 90_000 });
+  if (!pending) return null;
+  return {
+    type: 'iframe' as WidgetType,
+    title: pending.title ?? '',
+    data: {
+      url: pending.url,
+      selector: pending.selector,
+    } satisfies Record<string, unknown>,
+  };
+};
+
+const tryOpenAddDialogFromPending = async () => {
+  const prefill = await loadPrefillFromPendingPick();
+  if (!prefill) return false;
+  addDialogType.value = prefill.type;
+  addDialogData.value = prefill.data;
+  addDialogTitle.value = prefill.title;
+  addDialogOpen.value = true;
+  return true;
 };
 
 const transferDialogOpen = ref(false);
@@ -61,6 +122,9 @@ const transferTargetPageId = ref<string>('');
 
 const transferCandidates = computed(() => {
   const currentId = currentPage.value?.id ?? '';
+  // 复制：允许选择当前页面（等价于“生成一份副本”）
+  if (transferMode.value === 'copy') return store.pages.value;
+  // 移动：不允许选择当前页面
   return store.pages.value.filter((page) => page.id !== currentId);
 });
 
@@ -69,7 +133,11 @@ const transferWidget = computed(() => pageWidgets.value.find((item) => item.id =
 const openTransferDialog = (payload: { id: string; mode: 'move' | 'copy' }) => {
   transferMode.value = payload.mode;
   transferWidgetId.value = payload.id;
-  transferTargetPageId.value = transferCandidates.value[0]?.id ?? '';
+  const currentId = currentPage.value?.id ?? '';
+  transferTargetPageId.value =
+    payload.mode === 'copy' && currentId
+      ? currentId
+      : (transferCandidates.value[0]?.id ?? '');
   transferDialogOpen.value = true;
 };
 
@@ -79,8 +147,10 @@ const confirmTransfer = () => {
   const widgetId = transferWidgetId.value;
   if (!fromPageId || !widgetId || !toPageId) return;
   if (transferMode.value === 'copy') {
+    // 允许复制到当前页面：相当于在同一页面生成一份副本
     widgetStore.copyWidgetToPage(fromPageId, toPageId, widgetId);
   } else {
+    if (fromPageId === toPageId) return;
     widgetStore.moveWidgetToPage(fromPageId, toPageId, widgetId);
   }
   transferDialogOpen.value = false;
@@ -130,19 +200,28 @@ const handleLayoutChange = (layouts: WidgetLayout[]) => {
 
 const GRID_COLUMNS = 12;
 
-const handleAddCard = (payload?: {
-  type?: WidgetType;
-  name?: string;
-  icon?: string;
-  description?: string;
-  showBorder?: boolean;
-  showTitle?: boolean;
-  showBackground?: boolean;
-  w?: number;
-  h?: number;
-  data?: Record<string, unknown>;
-}) => {
-  if (!currentPage.value || !widgetStore.ready.value || !widgetInitialized.value) return null;
+const resolveTargetPageId = (pageId?: string) => {
+  const trimmed = typeof pageId === 'string' ? pageId.trim() : '';
+  if (trimmed && store.pages.value.some((p) => p.id === trimmed)) return trimmed;
+  return currentPage.value?.id ?? store.pages.value[0]?.id ?? '';
+};
+
+const handleAddCardToPage = (
+  pageId: string,
+  payload?: {
+    type?: WidgetType;
+    name?: string;
+    icon?: string;
+    description?: string;
+    showBorder?: boolean;
+    showTitle?: boolean;
+    showBackground?: boolean;
+    w?: number;
+    h?: number;
+    data?: Record<string, unknown>;
+  },
+) => {
+  if (!pageId || !widgetStore.ready.value || !widgetInitialized.value) return null;
   const type = payload?.type ?? DEFAULT_WIDGET_TYPE;
   const def = resolveWidgetDefinition(type);
   const clampInt = (value: unknown, fallback: number, min: number, max: number) => {
@@ -157,7 +236,7 @@ const handleAddCard = (payload?: {
   const maxH = def.defaults.maxH ?? 999;
   const resolvedW = clampInt(payload?.w, def.defaults.w, minW, maxW);
   const resolvedH = clampInt(payload?.h, def.defaults.h, minH, maxH);
-  const existing = pageWidgets.value;
+  const existing = widgetStore.getWidgets(pageId);
   const heights = Array(GRID_COLUMNS).fill(0);
 
   // 计算每列当前的高度，用于找到最平衡的落点
@@ -183,7 +262,7 @@ const handleAddCard = (payload?: {
     }
   }
 
-  const widget = widgetStore.addWidget(currentPage.value.id, {
+  const widget = widgetStore.addWidget(pageId, {
     w: resolvedW,
     h: resolvedH,
     minW: def.defaults.minW,
@@ -204,7 +283,7 @@ const handleAddCard = (payload?: {
     data: payload?.data,
   });
   logger.info('add widget', {
-    pageId: currentPage.value.id,
+    pageId,
     widgetId: widget?.id,
     type,
     name: payload?.name?.trim(),
@@ -215,6 +294,7 @@ const handleAddCard = (payload?: {
 };
 
 const handleConfirmAdd = (payload: {
+  pageId?: string;
   type: WidgetType;
   name?: string;
   icon?: string;
@@ -226,10 +306,16 @@ const handleConfirmAdd = (payload: {
   h?: number;
   data?: Record<string, unknown>;
 }) => {
-  const widget = handleAddCard(payload);
+  const targetPageId = resolveTargetPageId(payload.pageId);
+  if (!targetPageId) return;
+  const widget = handleAddCardToPage(targetPageId, payload);
   if (widget) {
-    logger.info('add widget from dialog', { pageId: currentPage.value?.id, widgetId: widget.id, type: payload.type });
+    logger.info('add widget from dialog', { pageId: targetPageId, widgetId: widget.id, type: payload.type });
+    if (targetPageId !== (currentPage.value?.id ?? '')) {
+      void router.push({ name: 'page', params: { pageId: targetPageId } });
+    }
     addDialogOpen.value = false;
+    resetAddDialogPrefill();
   }
 };
 
@@ -250,7 +336,21 @@ onMounted(async () => {
     pageId: currentPage.value?.id,
     widgets: pageWidgets.value.length,
   });
+
+  await tryOpenAddDialogFromPending();
   void onboardingGuide.startIfNeeded();
+});
+
+onActivated(() => {
+  enableDomPickListener();
+});
+
+onDeactivated(() => {
+  // KeepAlive 场景：组件不会 unmount，需要在 deactivated 时清理监听器。
+  disableDomPickListener();
+  // 防止在其它页面触发 dom-pick 时把弹窗状态写到缓存实例里，之后切回该页又“复活”。
+  addDialogOpen.value = false;
+  resetAddDialogPrefill();
 });
 </script>
 
@@ -259,11 +359,11 @@ onMounted(async () => {
     <PageBackground :page="currentPage" />
 
     <TooltipProvider :delay-duration="120">
-      <div class="pointer-events-none fixed top-6 right-6 z-40 flex flex-col items-end gap-3">
-        <div
-          data-tour="quick-tools"
-          class="border-border/35 bg-background/30 hover:border-border/55 hover:bg-background/45 pointer-events-auto flex items-center gap-1 rounded-2xl border p-1 opacity-85 shadow-none backdrop-blur-sm transition-all hover:opacity-100 hover:shadow-sm"
-        >
+	      <div class="pointer-events-none fixed top-6 right-6 z-40 flex flex-col items-end gap-3">
+	        <div
+	          data-tour="quick-tools"
+	          class="border-border/35 bg-background/30 hover:border-border/55 hover:bg-background/45 pointer-events-auto flex items-center gap-1 rounded-2xl border p-1 opacity-85 shadow-none backdrop-blur-sm transition-all hover:opacity-100 hover:shadow-sm"
+	        >
           <Tooltip>
             <TooltipTrigger as-child>
               <Button
@@ -400,6 +500,15 @@ onMounted(async () => {
 
     <PageFormDialog v-model:open="pageFormDialogOpen" :page="editingPage" @save="handleSavePage" />
 
-    <AddWidgetDialog v-model:open="addDialogOpen" @confirm="handleConfirmAdd" @close="handleAddDialogClose" />
-  </section>
+	    <AddWidgetDialog
+	      v-model:open="addDialogOpen"
+	      :default-type="addDialogType"
+	      :default-data="addDialogData"
+	      :default-title="addDialogTitle"
+	      :pages="store.pages.value"
+	      :default-page-id="currentPage?.id"
+	      @confirm="handleConfirmAdd"
+	      @close="handleAddDialogClose"
+	    />
+	  </section>
 </template>

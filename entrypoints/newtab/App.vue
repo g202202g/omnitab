@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted } from 'vue';
+import { browser } from 'wxt/browser';
 import { RouterView } from 'vue-router';
 import PageSidebar from '@/components/layout/PageSidebar.vue';
 import { usePageNavigation } from '@/composables/usePageNavigation';
@@ -7,6 +8,40 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { usePageDocumentMeta } from '@/composables/usePageDocumentMeta';
 
 const navigation = usePageNavigation();
+
+let newtabPort: any = null;
+let newtabPingTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+
+const setupNewtabPresence = async () => {
+  try {
+    const tab = await browser.tabs.getCurrent();
+    const tabId = (tab as any)?.id as number | undefined;
+    if (typeof tabId !== 'number') return;
+
+    newtabPort = browser.runtime.connect({ name: 'omnitab-newtab' });
+    newtabPort.postMessage({ type: 'newtab:register', tabId });
+    newtabPingTimer = globalThis.setInterval(() => {
+      try {
+        newtabPort?.postMessage?.({ type: 'newtab:ping', tabId });
+      } catch {
+        // ignore
+      }
+    }, 4000);
+  } catch {
+    // ignore
+  }
+};
+
+const teardownNewtabPresence = () => {
+  try {
+    if (newtabPingTimer) globalThis.clearInterval(newtabPingTimer);
+    newtabPingTimer = null;
+    newtabPort?.disconnect?.();
+    newtabPort = null;
+  } catch {
+    // ignore
+  }
+};
 
 usePageDocumentMeta(navigation.store.activePage, {
   defaultTitle: '万象标签',
@@ -71,6 +106,7 @@ const tryHandlePageHotkey = (event: KeyboardEvent) => {
 
 onMounted(async () => {
   await navigation.init();
+  await setupNewtabPresence();
   window.addEventListener('keydown', tryHandlePageHotkey, true);
   window.addEventListener('keyup', tryHandlePageHotkey, true);
 });
@@ -78,6 +114,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', tryHandlePageHotkey, true);
   window.removeEventListener('keyup', tryHandlePageHotkey, true);
+  teardownNewtabPresence();
 });
 </script>
 
