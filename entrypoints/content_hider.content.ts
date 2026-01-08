@@ -51,6 +51,15 @@ export default defineContentScript({
   allFrames: true,
   runAt: 'document_idle',
   main() {
+    // 仅在 iframe 内生效：用于“网页卡片（iframe）”裁剪内容与上报高度。
+    // 顶层页面（包括扩展覆盖的新标签页 chrome://newtab）不需要运行，避免不必要的 watch 和潜在的上下文失效报错。
+    if (window.self === window.top) return;
+
+    const isContextInvalidated = (error: unknown) => {
+      const message = String((error as any)?.message ?? error ?? '');
+      return message.includes('Extension context invalidated');
+    };
+
     const styleId = 'codex-iframe-style';
     const runtime = (browser as any)?.runtime;
     const extensionOrigin = (() => {
@@ -77,6 +86,7 @@ export default defineContentScript({
     let storageAccessCleanup: (() => void) | null = null;
     let locationTimer = 0;
     let lastReportedHref = '';
+    let invalidated = false;
 
     const isAuthLikeHref = (href: string) => {
       try {
@@ -415,11 +425,23 @@ export default defineContentScript({
     const applySelector = async () => {
       if (window.self === window.top) return;
       if (!widgetId) return;
+      if (invalidated) return;
       stopSelectorWait();
       heightObserver?.disconnect();
       heightObserver = null;
       heightTarget = null;
-      const state = await widgetsItem.getValue();
+      let state: WidgetState;
+      try {
+        state = await widgetsItem.getValue();
+      } catch (error) {
+        if (isContextInvalidated(error)) {
+          invalidated = true;
+          // 扩展被重载/更新后，content script 的上下文会失效；此时静默清理即可。
+          cleanup();
+          return;
+        }
+        throw error;
+      }
       const config = resolveConfigForFrame(state, widgetId);
       if (!config) {
         currentConfig = null;
@@ -479,7 +501,17 @@ export default defineContentScript({
     window.addEventListener('message', handleTokenMessage);
 
     const stopWatch = widgetsItem.watch(() => {
-      void applySelector();
+      if (invalidated) return;
+      try {
+        void applySelector();
+      } catch (error) {
+        if (isContextInvalidated(error)) {
+          invalidated = true;
+          cleanup();
+          return;
+        }
+        throw error;
+      }
     });
 
     const handleVisibility = () => {
@@ -493,7 +525,15 @@ export default defineContentScript({
     const cleanup = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('message', handleTokenMessage);
-      stopWatch?.();
+      try {
+        stopWatch?.();
+      } catch (error) {
+        // 扩展被重载时，watch 的 stop 也可能抛出“context invalidated”，静默忽略。
+        if (!isContextInvalidated(error)) {
+          // eslint-disable-next-line no-console
+          console.warn('[content-hider] stopWatch cleanup failed', error);
+        }
+      }
       currentConfig = null;
       stopSelectorObserver();
       heightObserver?.disconnect();
@@ -502,7 +542,14 @@ export default defineContentScript({
       heightTimer = 0;
       if (heightRaf) cancelAnimationFrame(heightRaf);
       heightRaf = 0;
-      storageAccessCleanup?.();
+      try {
+        storageAccessCleanup?.();
+      } catch (error) {
+        if (!isContextInvalidated(error)) {
+          // eslint-disable-next-line no-console
+          console.warn('[content-hider] storage access cleanup failed', error);
+        }
+      }
       storageAccessCleanup = null;
       if (locationTimer) clearInterval(locationTimer);
       locationTimer = 0;
