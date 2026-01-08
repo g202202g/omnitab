@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, provide, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import WidgetSettingsForm from './WidgetSettingsForm.vue';
 import { DEFAULT_WIDGET_TYPE, resolveWidgetDefinition } from './registry';
 import type { WidgetType } from './types';
@@ -38,6 +39,10 @@ const props = withDefaults(
     nextLabel?: string;
     cancelLabel?: string;
     showCancel?: boolean;
+
+    // 可选：作为“基础表单字段”展示“添加到页面”。
+    pages?: Array<{ id: string; name: string; icon?: string }>;
+    pageId?: string;
   }>(),
   {
     base: () => ({
@@ -55,12 +60,16 @@ const props = withDefaults(
     nextLabel: '下一步',
     cancelLabel: '取消',
     showCancel: true,
+
+    pages: undefined,
+    pageId: '',
   },
 );
 
 const emit = defineEmits<{
   (e: 'update:base', value: WidgetBaseForm): void;
   (e: 'update:custom', value: Record<string, unknown>): void;
+  (e: 'update:pageId', value: string): void;
   (e: 'submit', payload: { base: WidgetBaseForm; custom: Record<string, unknown> }): void;
   (e: 'cancel'): void;
 }>();
@@ -125,6 +134,21 @@ const primaryLabel = computed(() =>
 
 const validateCustom = computed(() => !hasCustomForm.value || activeStep.value === 2);
 
+const hasMultiplePages = computed(() => Array.isArray(props.pages) && props.pages.length > 1);
+const selectedPageId = computed({
+  get: () => (typeof props.pageId === 'string' ? props.pageId : ''),
+  set: (value) => emit('update:pageId', String(value ?? '')),
+});
+
+const ensureDefaultPageId = () => {
+  if (!hasMultiplePages.value) return;
+  const pages = props.pages ?? [];
+  if (!pages.length) return;
+  const current = selectedPageId.value.trim();
+  if (current && pages.some((p) => p.id === current)) return;
+  selectedPageId.value = pages[0]?.id ?? '';
+};
+
 const form = useForm<WidgetEditorFormValues>({
   validationSchema: computed(() =>
     toTypedSchema(
@@ -140,6 +164,14 @@ const form = useForm<WidgetEditorFormValues>({
     custom: { ...normalizeCustom(props.custom, (initialBase.type ?? DEFAULT_WIDGET_TYPE) as WidgetType) },
   },
 });
+
+watch(
+  () => [hasMultiplePages.value, props.pages, props.pageId] as const,
+  () => {
+    ensureDefaultPageId();
+  },
+  { immediate: true, deep: true },
+);
 
 watch(
   () => (form.values.base?.type as WidgetType | undefined) ?? DEFAULT_WIDGET_TYPE,
@@ -265,6 +297,21 @@ const cancel = () => {
     <ScrollArea type="scroll" class="min-h-0 pr-3">
       <div class="space-y-4">
         <div v-if="activeStep === 1">
+          <div v-if="hasMultiplePages" class="grid gap-2">
+            <div class="text-foreground text-sm font-medium">添加到页面</div>
+            <Select v-model="selectedPageId">
+              <SelectTrigger class="h-10 w-full">
+                <SelectValue placeholder="选择页面" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="page in props.pages" :key="page.id" :value="page.id">
+                  {{ page.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <div class="text-muted-foreground text-xs">默认当前页面，可切换到其他页面。</div>
+          </div>
+
           <WidgetSettingsForm :allow-type-pick="props.allowTypePick" />
         </div>
 

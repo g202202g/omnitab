@@ -22,10 +22,18 @@ const props = withDefaults(
   defineProps<{
     open?: boolean;
     defaultType?: WidgetType;
+    defaultData?: Record<string, unknown>;
+    defaultTitle?: string;
+    pages?: Array<{ id: string; name: string; icon?: string }>;
+    defaultPageId?: string;
   }>(),
   {
     open: false,
     defaultType: DEFAULT_WIDGET_TYPE,
+    defaultData: undefined,
+    defaultTitle: '',
+    pages: undefined,
+    defaultPageId: '',
   },
 );
 
@@ -35,6 +43,7 @@ const emit = defineEmits<{
   (
     e: 'confirm',
     payload: {
+      pageId?: string;
       type: WidgetType;
       name?: string;
       icon?: string;
@@ -77,6 +86,9 @@ const baseForm = ref<WidgetBaseForm>(buildBaseDefaults(props.defaultType ?? DEFA
 const customForm = ref<Record<string, unknown>>(buildCustomDefaults(props.defaultType ?? DEFAULT_WIDGET_TYPE));
 const editorKey = ref(0);
 
+const hasMultiplePages = computed(() => Array.isArray(props.pages) && props.pages.length > 1);
+const targetPageId = ref('');
+
 const logger = useLog('add-widget-dialog');
 const tab = ref<'create' | 'import'>('create');
 
@@ -88,6 +100,25 @@ const importFileInputRef = ref<HTMLInputElement | null>(null);
 const resetAddForm = (type: WidgetType = DEFAULT_WIDGET_TYPE) => {
   baseForm.value = buildBaseDefaults(type);
   customForm.value = buildCustomDefaults(type);
+
+  if (props.defaultTitle && props.defaultTitle.trim()) {
+    baseForm.value.title = props.defaultTitle.trim();
+  }
+
+  if (props.defaultData && typeof props.defaultData === 'object') {
+    customForm.value = {
+      ...customForm.value,
+      ...props.defaultData,
+    };
+  }
+
+  if (hasMultiplePages.value) {
+    const pageId = typeof props.defaultPageId === 'string' ? props.defaultPageId.trim() : '';
+    const pages = props.pages ?? [];
+    targetPageId.value = pages.some((p) => p.id === pageId) ? pageId : (pages[0]?.id ?? '');
+  } else {
+    targetPageId.value = '';
+  }
   editorKey.value += 1;
 };
 
@@ -101,6 +132,7 @@ const handleSubmit = (payload: { base: WidgetBaseForm; custom: Record<string, un
       : undefined;
   const normalizedData = { ...(payload.custom ?? {}) };
   emit('confirm', {
+    pageId: hasMultiplePages.value ? targetPageId.value || undefined : undefined,
     type,
     name,
     icon,
@@ -169,6 +201,7 @@ const confirmImport = () => {
   const parsed = importPreview.value ?? parseImport(importText.value);
   if (!parsed) return;
   emit('confirm', {
+    pageId: hasMultiplePages.value ? targetPageId.value || undefined : undefined,
     type: parsed.type,
     name: parsed.name,
     icon: parsed.icon,
@@ -204,6 +237,35 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  () => props.defaultData,
+  (data) => {
+    if (!open.value) return;
+    if (!data || typeof data !== 'object') return;
+    customForm.value = {
+      ...customForm.value,
+      ...data,
+    };
+    editorKey.value += 1;
+  },
+  { deep: true },
+);
+
+watch(
+  () => props.defaultTitle,
+  (title) => {
+    if (!open.value) return;
+    if (typeof title !== 'string') return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    baseForm.value = {
+      ...baseForm.value,
+      title: trimmed,
+    };
+    editorKey.value += 1;
+  },
+);
 </script>
 
 <template>
@@ -224,8 +286,8 @@ watch(
         <TabsList
           class="border-border bg-background/60 h-auto w-full shrink-0 justify-start rounded-2xl border p-1 shadow-sm"
         >
-          <TabsTrigger value="create" class="h-9 !flex-none rounded-xl px-4">新建</TabsTrigger>
-          <TabsTrigger value="import" class="h-9 !flex-none rounded-xl px-4">从 JSON 导入</TabsTrigger>
+          <TabsTrigger value="create" class="h-9 flex-none! rounded-xl px-4">新建</TabsTrigger>
+          <TabsTrigger value="import" class="h-9 flex-none! rounded-xl px-4">从 JSON 导入</TabsTrigger>
         </TabsList>
 
         <TabsContent value="create" class="min-h-0 flex-1">
@@ -235,6 +297,8 @@ watch(
               :key="editorKey"
               v-model:base="baseForm"
               v-model:custom="customForm"
+              v-model:page-id="targetPageId"
+              :pages="props.pages"
               allow-type-pick
               final-label="确认添加"
               next-label="下一步"
