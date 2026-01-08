@@ -86,7 +86,7 @@ const urlStatus = computed(() => {
             v-bind="componentField"
             class="h-10"
             placeholder="不熟悉可留空"
-            maxlength="200"
+            maxlength="8000"
             autocapitalize="none"
             spellcheck="false"
           />

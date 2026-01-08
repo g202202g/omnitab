@@ -22,7 +22,7 @@ export const buildIframeCustomSchema = () =>
         z
           .string()
           .trim()
-          .max(200, '内容最多 200 个字符')
+          .max(8000, '内容过长（最多 8000 字符）')
           .refine((v) => isValidCssSelector(v), '内容格式不正确')
           .optional(),
       ),
