@@ -267,7 +267,7 @@ export function useOnboardingGuide() {
       opts.driver.destroy();
     };
 
-    const steps = [
+	    const steps = [
       {
         element: resolveElement('.omnitab-tour-settings-entry'),
         popover: {
@@ -314,20 +314,31 @@ export function useOnboardingGuide() {
           onNextClick: closePageDialogAndNext,
         },
       },
-      {
-        element: resolveElement('[data-tour="add-card"]'),
-        popover: {
-          title: '添加卡片',
-          description: '点“+”把新卡片放到当前页面。',
-          prevBtnText: '上一步',
-          nextBtnText: '下一步',
-          closeBtnText: '关闭',
-          onNextClick: openAddCardDialogAndNext,
-        },
-      },
-      {
-        element: resolveElement('[data-tour="add-card-dialog"]'),
-        onHighlighted: handleAddCardDialogHighlighted,
+	      {
+	        element: resolveElement('[data-tour="add-card"]'),
+	        popover: {
+	          title: '添加卡片',
+	          description: '点“+”把新卡片放到当前页面。',
+	          prevBtnText: '上一步',
+	          nextBtnText: '下一步',
+	          closeBtnText: '关闭',
+	          onNextClick: openAddCardDialogAndNext,
+	        },
+	      },
+	      {
+	        element: resolveElement('[data-tour="add-card"]'),
+	        popover: {
+	          title: '一键添加网页卡片（推荐）',
+	          description:
+	            '在任意网页里点击浏览器工具栏上的 OmniTab 图标，进入选取模式后点一下你想看的区域；回到新标签页确认即可添加为网页卡片。',
+	          prevBtnText: '上一步',
+	          nextBtnText: '下一步',
+	          closeBtnText: '关闭',
+	        },
+	      },
+	      {
+	        element: resolveElement('[data-tour="add-card-dialog"]'),
+	        onHighlighted: handleAddCardDialogHighlighted,
         onDeselected: () => {
           unlockAddCardDialog();
           unlockAddCardDialog = () => {};
