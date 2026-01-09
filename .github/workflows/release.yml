@@ -32,9 +32,13 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "[debug] ref_type=${GITHUB_REF_TYPE} ref_name=${GITHUB_REF_NAME} sha=${GITHUB_SHA}"
+
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
             echo "skip_release=false" >> "$GITHUB_OUTPUT"
+            echo "build_zip=true" >> "$GITHUB_OUTPUT"
+            echo "[debug] tag build: VERSION=${VERSION}"
           else
             git fetch --tags --force
 
@@ -55,26 +59,51 @@ jobs:
               PREVIOUS_TAG="${LATEST_TAG}"
             fi
 
+            echo "[debug] latest_tag=${LATEST_TAG:-none} base=${BASE} range=${RANGE}"
+
             IFS='.' read -r MAJOR MINOR PATCH <<< "${BASE}"
 
             COMMITS="$(
               git log --format='%s%n%b' "${RANGE}" 2>/dev/null || true
             )"
 
+            echo "[debug] commits_sample="
+            echo "${COMMITS}" | sed -n '1,60p' || true
+
+
             # 版本递增规则（自动判断最高等级）：
             # - 出现 BREAKING CHANGE / type!:/type(scope)!: -> major
             # - 出现 feat: / feat(scope): -> minor
             # - 出现 fix/perf/refactor -> patch
-            # - 其他（如 docs/ci/chore）-> 不发版
-            BUMP="none"
+            # - 其他（如 docs/ci/chore）：默认不打包、不发版（BUMP=none）
+            #
+            # 但为避免“提交类型写成 docs/chore，实际上改了大量代码却没打包”，
+            # 当检测到本次范围内存在代码变更（非文档/CI/配置类文件）时，将 BUMP 提升为 patch。
+            RELEASE_BUMP="none"
             if echo "${COMMITS}" | grep -qiE 'BREAKING CHANGE|BREAKING-CHANGE'; then
-              BUMP="major"
+              RELEASE_BUMP="major"
             elif echo "${COMMITS}" | grep -qiE '^[a-zA-Z]+(\\([^\\n\\r]+\\))?!:'; then
-              BUMP="major"
+              RELEASE_BUMP="major"
             elif echo "${COMMITS}" | grep -qiE '^feat(\\([^\\n\\r]+\\))?:'; then
-              BUMP="minor"
+              RELEASE_BUMP="minor"
             elif echo "${COMMITS}" | grep -qiE '^(fix|perf|refactor)(\\([^\\n\\r]+\\))?:'; then
-              BUMP="patch"
+              RELEASE_BUMP="patch"
+            fi
+
+            BUMP="${RELEASE_BUMP}"
+
+            # 有实际代码变更但未按 conventional commits 标注时，兜底提升为 patch（仅用于打包/版本递增）。
+            if [[ "${BUMP}" == "none" ]]; then
+              CODE_CHANGED="$(
+                git diff --name-only "${RANGE}" \
+                  | grep -Ev '^(README\\.md|CHANGELOG\\.md|\\.github/|docs/|scripts/|.*\\.(md|txt)$)' \
+                  | head -n 1 \
+                  || true
+              )"
+              echo "[debug] code_changed_sample=${CODE_CHANGED:-none}"
+              if [[ -n "${CODE_CHANGED}" ]]; then
+                BUMP="patch"
+              fi
             fi
 
             case "${BUMP}" in
@@ -96,15 +125,24 @@ jobs:
 
             VERSION="${MAJOR}.${MINOR}.${PATCH}"
             echo "最新版本：${LATEST_TAG:-（无）}"
-            echo "递增方式：${BUMP}"
+            echo "递增方式（发布）：${RELEASE_BUMP}"
+            echo "递增方式（打包）：${BUMP}"
             echo "本次版本：v${VERSION}"
+
+            echo "[debug] outputs: skip_release=$([[ \"${RELEASE_BUMP}\" == \"none\" ]] && echo true || echo false) build_zip=$([[ \"${BUMP}\" == \"none\" ]] && echo false || echo true)"
 
             echo "previous_tag=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
 
-            if [[ "${BUMP}" == "none" ]]; then
+            if [[ "${RELEASE_BUMP}" == "none" ]]; then
               echo "skip_release=true" >> "$GITHUB_OUTPUT"
             else
               echo "skip_release=false" >> "$GITHUB_OUTPUT"
+            fi
+
+            if [[ "${BUMP}" == "none" ]]; then
+              echo "build_zip=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "build_zip=true" >> "$GITHUB_OUTPUT"
             fi
           fi
 
@@ -117,24 +155,24 @@ jobs:
           echo "本次打包版本：${VERSION}"
 
       - name: 安装 pnpm
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
       - name: 安装 Node.js
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: 安装依赖
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: 写入版本号
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -142,15 +180,15 @@ jobs:
           pnpm pkg set version="${VERSION}"
 
       - name: 类型检查
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         run: pnpm compile
 
       - name: 构建并打包 zip
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         run: pnpm zip
 
       - name: 整理产物
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -163,13 +201,17 @@ jobs:
           fi
 
           VERSION="${{ steps.version.outputs.version }}"
-          OUT_NAME="omnitab-v${VERSION}-chrome.zip"
+          if [[ "${{ steps.version.outputs.skip_release }}" == "true" ]]; then
+            OUT_NAME="omnitab-v${VERSION}-${GITHUB_SHA::7}-chrome.zip"
+          else
+            OUT_NAME="omnitab-v${VERSION}-chrome.zip"
+          fi
 
           cp "${ZIP_PATH}" "dist/${OUT_NAME}"
           echo "已生成：dist/${OUT_NAME}"
 
       - name: 上传产物（Actions）
-        if: steps.version.outputs.skip_release != 'true'
+        if: steps.version.outputs.build_zip == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: omnitab-zip
