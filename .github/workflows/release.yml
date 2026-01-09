@@ -82,11 +82,11 @@ jobs:
             RELEASE_BUMP="none"
             if echo "${COMMITS}" | grep -qiE 'BREAKING CHANGE|BREAKING-CHANGE'; then
               RELEASE_BUMP="major"
-            elif echo "${COMMITS}" | grep -qiE '^[a-zA-Z]+(\\([^\\n\\r]+\\))?!:'; then
+            elif echo "${COMMITS}" | grep -qiE '^[a-zA-Z]+(\([^)]+\))?!:'; then
               RELEASE_BUMP="major"
-            elif echo "${COMMITS}" | grep -qiE '^feat(\\([^\\n\\r]+\\))?:'; then
+            elif echo "${COMMITS}" | grep -qiE '^feat(\([^)]+\))?:'; then
               RELEASE_BUMP="minor"
-            elif echo "${COMMITS}" | grep -qiE '^(fix|perf|refactor)(\\([^\\n\\r]+\\))?:'; then
+            elif echo "${COMMITS}" | grep -qiE '^(fix|perf|refactor)(\([^)]+\))?:'; then
               RELEASE_BUMP="patch"
             fi
 
